@@ -1,0 +1,40 @@
+# Use the specific base image from Kakao Cloud
+FROM bigdata-150.kr-central-2.kcr.dev/kc-kubeflow/jupyter-tensorflow-cuda-full:v1.0.1.py38
+
+# Set the user to root to avoid permission issues during installation
+USER root
+
+# Create missing directories and set correct permissions for apt-get to function properly
+RUN mkdir -p /var/lib/apt/lists/partial \
+    && apt-get clean \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    wget \
+    dpkg \
+    git \
+    curl \
+    ca-certificates \
+    bzip2 \
+    libx11-6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements file into the container
+COPY requirements.txt /tmp/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Clean up the temporary files
+RUN rm -rf /tmp/requirements.txt
+
+# Revert to the default non-root user, typically 'jovyan' in Jupyter images
+USER jovyan
+
+# Set the working directory
+WORKDIR /home/jovyan
+
+# Expose any necessary ports
+# EXPOSE 8888
+
+# Set the default command or entrypoint, if different from the base image
+# CMD ["jupyter", "notebook", "--ip='0.0.0.0'", "--port=8888", "--no-browser", "--allow-root"]

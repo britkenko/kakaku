@@ -1,65 +1,36 @@
-# Base image from Kubeflow's container registry with Jupyter and TensorFlow
-FROM bigdata-150.kr-central-2.kcr.dev/kc-kubeflow/jupyter-tensorflow-cuda-full:v1.0.1.py38
+# Use Jupyter's scipy notebook with Python 3.11 as the base image
+FROM jupyter/scipy-notebook:python-3.11 as base
 
-# Ensure we are using root to perform system operations
-USER root
-
-# Update and install necessary system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    dpkg \
-    git \
-    curl \
-    ca-certificates \
-    bzip2 \
-    libx11-6 \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
-
-# Resolve any dpkg issues from interrupted installs
-RUN dpkg --configure -a
-
-# Upgrade pip and install Python packages from requirements.txt
-COPY requirements.txt /tmp/
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
-
-# Install and update Node.js to a suitable version
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
-    apt-get install -y nodejs
-
-# Set the initial working directory for the application
+# Set the working directory
 WORKDIR /app
 
-# Assuming ComfyUI repository is cloned in the Docker context under /ComfyUI
-# Navigate to the ComfyUI directory where package.json is located
-WORKDIR /ComfyUI/test-ui
+# Copy the requirements file and pre-build check script to the container
+COPY requirements.txt pre_build_check.sh /app/
 
-# Debug: List the contents of the directory to confirm files are present
-RUN ls -la
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
-# Additional debug step: Check if package.json is in the expected directory
-RUN if [ ! -f package.json ]; then echo "package.json not found"; exit 1; fi
+# Copy the ComfyUI project into the container
+COPY ComfyUI/tests-ui /app/ComfyUI
 
-# Install JS dependencies
-RUN npm install
+# Change the working directory to ComfyUI
+WORKDIR /app/ComfyUI
 
-# Optional: Run tests if necessary
-# RUN npm run test
+# Run pre-build checks
+RUN /app/pre_build_check.sh
 
-# Copy the entire contents of ComfyUI into the final working directory
-COPY . /app
+# Ensure user is root for package installations
+USER root
 
-# Set environment variables for Kubeflow to recognize the JupyterLab as a proper UI
-ENV NB_PREFIX /
-ENV JUPYTER_ENABLE_LAB yes
+# Create necessary directories for APT if they don't exist
+RUN mkdir -p /var/lib/apt/lists/partial && \
+    chmod -R 777 /var/lib/apt/lists
 
-# Expose port 8888 for JupyterLab
-EXPOSE 8888
+# Install Node.js from the NodeSource binary distributions
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
+    apt-get install -y nodejs
 
-# Configure container to run Jupyter Lab
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''", "--NotebookApp.allow_origin='*'", "--NotebookApp.base_url=${NB_PREFIX}"]
-
-# Switch back to the non-root user for security reasons
-USER jovyan
+# Optionally switch back to the original user (from Jupyter base image)
+USER $NB_UID

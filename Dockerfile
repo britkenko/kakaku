@@ -23,7 +23,11 @@ RUN /app/pre_build_check.sh
 # Ensure user is root for package installations
 USER root
 
+<<<<<<< HEAD
 # Create necessary directories for APT if they don't exist and set permissions
+=======
+# Create necessary directories for APT if they don't exist
+>>>>>>> 4071c2ad0364a197fe3d4f92d4870c7de482865d
 RUN mkdir -p /var/lib/apt/lists/partial && \
     chmod -R 777 /var/lib/apt/lists
 
@@ -32,9 +36,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get update && \
     apt-get install -y nodejs
 
+<<<<<<< HEAD
 # Clean up APT when done
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+=======
+>>>>>>> 4071c2ad0364a197fe3d4f92d4870c7de482865d
 # Optionally switch back to the original user (from Jupyter base image)
 USER $NB_UID
